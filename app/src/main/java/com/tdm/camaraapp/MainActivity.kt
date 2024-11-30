@@ -2,6 +2,7 @@ package com.tdm.camaraapp
 
 import android.Manifest
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -42,23 +43,23 @@ class MainActivity : AppCompatActivity() {
             permissionHelper.requestPermission(Manifest.permission.CAMERA, CAMERA_PERMISSION_REQUEST_CODE)
         }
 
-        // Configuramos el listener para el botón de captura
         btnCapture.setOnClickListener {
+            Toast.makeText(this, "pressed", Toast.LENGTH_SHORT).show()
+            Log.d("MainActivity", "Botón de captura presionado")
             cameraManager.captureImage(
-                executor = ContextCompat.getMainExecutor(this), // Ejecutamos en el hilo principal
+                executor = ContextCompat.getMainExecutor(this),
                 onImageCaptured = { bitmap ->
-                    // Mostramos la imagen capturada en el ImageView
+                    Log.d("MainActivity", "Imagen capturada correctamente")
                     frozenImage.setImageBitmap(bitmap)
-                    // Ocultamos la vista de la cámara y mostramos la imagen capturada
                     frozenImage.visibility = View.VISIBLE
                     previewView.visibility = View.GONE
                 },
                 onError = { exception ->
-                    // Mostramos un mensaje de error si la captura falla
-                    Toast.makeText(this, "Error al capturar imagen: ${exception.message}", Toast.LENGTH_LONG).show()
+                    Log.e("MainActivity", "Error al capturar imagen: ${exception.message}")
                 }
             )
         }
+
 
         // Agregamos animación al botón de captura
         val buttonAnimator = ButtonAnimator()

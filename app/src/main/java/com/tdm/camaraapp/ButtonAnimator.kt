@@ -5,10 +5,9 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.ImageButton
 import android.animation.ObjectAnimator
 
-// Clase encargada de la animación de los botones
 class ButtonAnimator {
 
-    // Método para configurar el listener del botón
+    // Metodo para configurar el listener del botón
     fun setButtonAnimation(btnCapture: ImageButton) {
         btnCapture.setOnTouchListener { view, event ->
             when (event.action) {
@@ -39,7 +38,7 @@ class ButtonAnimator {
                     }
                 }
             }
-            true // Indica que el evento ha sido consumido
+            false // Cambiado a 'false' para no bloquear el evento del botón
         }
     }
 }
