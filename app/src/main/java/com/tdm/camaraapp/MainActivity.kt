@@ -1,26 +1,27 @@
 package com.tdm.camaraapp
 
 import android.Manifest
-import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
 import androidx.camera.view.PreviewView
-import androidx.core.view.WindowInsetsCompat
-import androidx.activity.result.ActivityResultLauncher
+import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var imageCapture: ImageCapture
     private lateinit var previewView: PreviewView
     private lateinit var btnCapture: ImageButton
+    private lateinit var frozenImage: ImageView
+    private lateinit var permissionHelper: PermissionHelper
 
     private val CAMERA_PERMISSION_REQUEST_CODE = 1001
 
@@ -28,16 +29,33 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Inicializar vistas y PermissionHelper
         previewView = findViewById(R.id.previewView)
         btnCapture = findViewById(R.id.btnCapture)
+        frozenImage = findViewById(R.id.frozenImage)
+        permissionHelper = PermissionHelper(this)
 
         // Verifica si el permiso de cámara ha sido concedido
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            // El permiso ya está concedido, se puede iniciar la cámara
+        if (permissionHelper.isPermissionGranted(Manifest.permission.CAMERA)) {
             startCamera()
         } else {
-            // Si el permiso no ha sido concedido, lo solicitamos
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_REQUEST_CODE)
+            permissionHelper.requestPermission(Manifest.permission.CAMERA, CAMERA_PERMISSION_REQUEST_CODE)
+        }
+
+        btnCapture.setOnClickListener {
+            Log.d("MainActivity", "Capturando imagen...")
+
+            captureImage { bitmap ->
+                Log.d("MainActivity", "Imagen capturada con éxito")
+
+                // Mostrar el Bitmap en el ImageView
+                frozenImage.setImageBitmap(bitmap)
+
+                // Ocultar la cámara y mostrar la imagen congelada
+                frozenImage.visibility = View.VISIBLE
+                previewView.visibility = View.GONE
+                Log.d("MainActivity", "Vista de la cámara oculta, imagen congelada visible")
+            }
         }
 
         // Lógica de la animación del botón
@@ -45,43 +63,59 @@ class MainActivity : AppCompatActivity() {
         buttonAnimator.setButtonAnimation(btnCapture)
     }
 
-    // Método para inicializar la cámara
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-            // Configuración del selector de cámara (delantera o trasera)
-            val cameraSelector = CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                .build()
+            val preview = Preview.Builder().build().also {
+                it.setSurfaceProvider(previewView.surfaceProvider)
+            }
 
-            val preview = Preview.Builder().build()
+            imageCapture = ImageCapture.Builder().build()
 
-            // Configurar el preview para la vista previa en vivo
-            preview.setSurfaceProvider(previewView.surfaceProvider)
-
-            // Vincula la cámara al ciclo de vida del activity
-            cameraProvider.bindToLifecycle(this, cameraSelector, preview)
-
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }, ContextCompat.getMainExecutor(this))
     }
 
-    // Método que maneja la respuesta de la solicitud de permisos
+    private fun captureImage(onImageCaptured: (Bitmap) -> Unit) {
+        imageCapture.takePicture(ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageCapturedCallback() {
+            override fun onCaptureSuccess(image: ImageProxy) {
+                val bitmap = imageProxyToBitmap(image)
+                onImageCaptured(bitmap)
+                image.close()
+            }
+
+            override fun onError(exception: ImageCaptureException) {
+                exception.printStackTrace()
+            }
+        })
+    }
+
+    private fun imageProxyToBitmap(image: ImageProxy): Bitmap {
+        val buffer = image.planes[0].buffer
+        val bytes = ByteArray(buffer.remaining())
+        buffer.get(bytes)
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        when (requestCode) {
-            CAMERA_PERMISSION_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // El permiso ha sido concedido, inicia la cámara
-                    startCamera()
-                } else {
-                    // El permiso no ha sido concedido, muestra un mensaje al usuario
-                    Toast.makeText(this, "El permiso de cámara es necesario para usar la aplicación.", Toast.LENGTH_LONG).show()
-                }
+        permissionHelper.handlePermissionResult(
+            requestCode = requestCode,
+            expectedRequestCode = CAMERA_PERMISSION_REQUEST_CODE,
+            grantResults = grantResults,
+            onGranted = { startCamera() },
+            onDenied = {
+                Toast.makeText(this, "El permiso de cámara es necesario para usar la aplicación.", Toast.LENGTH_LONG).show()
             }
-        }
+        )
     }
 }
