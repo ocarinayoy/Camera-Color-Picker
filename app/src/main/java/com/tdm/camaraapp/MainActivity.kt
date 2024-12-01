@@ -123,7 +123,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onBackPressed() {
+        if (frozenImage.visibility == View.VISIBLE) {
+            // Ocultar la imagen congelada y reiniciar la vista previa
+            frozenImage.setImageDrawable(null)
+            frozenImage.visibility = View.GONE
+            previewView.visibility = View.VISIBLE
 
+            // Reiniciar la cámara
+            initializeCamera()
+        } else {
+            super.onBackPressed()
+        }
+    }
 
     private fun initializeCamera() {
         cameraManager.startCamera(previewView) {
