@@ -2,7 +2,6 @@ package com.tdm.camaraapp
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
@@ -124,19 +123,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onBackPressed() {
-        if (frozenImage.visibility == View.VISIBLE) {
-            // Ocultar la imagen congelada y reiniciar la vista previa
-            frozenImage.setImageDrawable(null)
-            frozenImage.visibility = View.GONE
-            previewView.visibility = View.VISIBLE
-
-            // Reiniciar la cámara
-            initializeCamera()
-        } else {
-            super.onBackPressed()
-        }
-    }
 
 
     private fun initializeCamera() {
