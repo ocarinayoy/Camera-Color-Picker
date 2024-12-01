@@ -3,8 +3,8 @@ package com.tdm.camaraapp
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
@@ -42,15 +42,19 @@ class MainActivity : AppCompatActivity() {
             permissionHelper.requestPermission(Manifest.permission.CAMERA, CAMERA_PERMISSION_REQUEST_CODE)
         }
 
-
-//        Tomar la foto
         btnCapture.setOnClickListener {
-            Toast.makeText(this, "capturando...", Toast.LENGTH_SHORT).show()
+            // Limpiar la imagen previa antes de capturar una nueva
+            frozenImage.setImageDrawable(null)
+            frozenImage.visibility = View.GONE
+
+            Toast.makeText(this, "Capturando...", Toast.LENGTH_SHORT).show()
             cameraManager.captureImage(
                 executor = ContextCompat.getMainExecutor(this),
                 onImageCaptured = { uri ->
                     Log.d("MainActivity", "Imagen capturada: $uri")
-                    frozenImage.setImageURI(uri)  // Mostramos la imagen en el ImageView
+
+                    // Actualizar la imagen congelada con la nueva URI
+                    frozenImage.setImageURI(uri)
                     frozenImage.visibility = View.VISIBLE
                     previewView.visibility = View.GONE
                 },
@@ -60,36 +64,35 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
+
         frozenImage.setOnTouchListener { view, event ->
-
-            Toast.makeText(this, "tocado", Toast.LENGTH_SHORT).show()
             if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
-                val x = event.x.toInt()
-                val y = event.y.toInt()
+                val imageViewWidth = frozenImage.width.toFloat()
+                val imageViewHeight = frozenImage.height.toFloat()
 
-                // Obtener el bitmap de la vista de la cámara
-                val bitmap = getBitmapFromPreview(previewView)
+                val drawable = frozenImage.drawable as? BitmapDrawable
+                val bitmap = drawable?.bitmap
 
-                // Obtener el color en las coordenadas tocadas
-                if (bitmap != null && x < bitmap.width && y < bitmap.height) {
-                    val pixelColor = bitmap.getPixel(x, y)
-                    updateColorInfo(pixelColor)
+                if (bitmap != null) {
+                    val bitmapWidth = bitmap.width.toFloat()
+                    val bitmapHeight = bitmap.height.toFloat()
+
+                    // Coordenadas táctiles relativas al ImageView
+                    val xTouch = event.x
+                    val yTouch = event.y
+
+                    // Escalar las coordenadas táctiles al tamaño del Bitmap
+                    val x = ((xTouch / imageViewWidth) * bitmapWidth).toInt()
+                    val y = ((yTouch / imageViewHeight) * bitmapHeight).toInt()
+
+                    // Verificar si las coordenadas están dentro de los límites del Bitmap
+                    if (x in 0 until bitmap.width && y in 0 until bitmap.height) {
+                        val pixelColor = bitmap.getPixel(x, y)
+                        updateColorInfo(pixelColor)
+                    }
                 }
             }
             true
-        }
-
-
-    }
-
-    private fun getBitmapFromPreview(previewView: PreviewView): Bitmap? {
-        try {
-            val bitmap = Bitmap.createBitmap(previewView.width, previewView.height, Bitmap.Config.ARGB_8888)
-            previewView.draw(Canvas(bitmap))
-            return bitmap
-        } catch (e: Exception) {
-            Log.e("CameraApp", "Error al obtener el bitmap: ${e.message}")
-            return null
         }
     }
 
@@ -113,8 +116,6 @@ class MainActivity : AppCompatActivity() {
 
     // Función para obtener el nombre del color (opcional)
     private fun getColorName(red: Int, green: Int, blue: Int): String {
-        // Aquí puedes agregar una lógica para mapear el color a un nombre específico.
-        // Este es solo un ejemplo básico.
         return when {
             red > green && red > blue -> "Rojo"
             green > red && green > blue -> "Verde"
@@ -123,19 +124,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     override fun onBackPressed() {
-        // Verificar si la imagen congelada está visible
         if (frozenImage.visibility == View.VISIBLE) {
-            // Ocultar la imagen congelada
+            // Ocultar la imagen congelada y reiniciar la vista previa
+            frozenImage.setImageDrawable(null)
             frozenImage.visibility = View.GONE
-            // Mostrar la vista de la cámara nuevamente
             previewView.visibility = View.VISIBLE
 
             // Reiniciar la cámara
             initializeCamera()
         } else {
-            // Si no hay imagen congelada, ejecutar el comportamiento estándar de retroceso
             super.onBackPressed()
         }
     }
@@ -157,4 +155,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
