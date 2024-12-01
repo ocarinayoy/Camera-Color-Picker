@@ -2,11 +2,16 @@ package com.tdm.camaraapp
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.view.PreviewView
@@ -54,7 +59,70 @@ class MainActivity : AppCompatActivity() {
                 }
             )
         }
+
+        frozenImage.setOnTouchListener { view, event ->
+
+            Toast.makeText(this, "tocado", Toast.LENGTH_SHORT).show()
+            if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
+                val x = event.x.toInt()
+                val y = event.y.toInt()
+
+                // Obtener el bitmap de la vista de la cámara
+                val bitmap = getBitmapFromPreview(previewView)
+
+                // Obtener el color en las coordenadas tocadas
+                if (bitmap != null && x < bitmap.width && y < bitmap.height) {
+                    val pixelColor = bitmap.getPixel(x, y)
+                    updateColorInfo(pixelColor)
+                }
+            }
+            true
+        }
+
+
     }
+
+    private fun getBitmapFromPreview(previewView: PreviewView): Bitmap? {
+        try {
+            val bitmap = Bitmap.createBitmap(previewView.width, previewView.height, Bitmap.Config.ARGB_8888)
+            previewView.draw(Canvas(bitmap))
+            return bitmap
+        } catch (e: Exception) {
+            Log.e("CameraApp", "Error al obtener el bitmap: ${e.message}")
+            return null
+        }
+    }
+
+    private fun updateColorInfo(color: Int) {
+        // Obtener el valor RGB del color
+        val red = Color.red(color)
+        val green = Color.green(color)
+        val blue = Color.blue(color)
+
+        // Convertir a formato HEX
+        val hexColor = String.format("#%02X%02X%02X", red, green, blue)
+
+        // Actualizar los TextViews
+        findViewById<TextView>(R.id.tvHexValue).text = "HEX: $hexColor"
+        findViewById<TextView>(R.id.tvRGBValue).text = "RGB: $red, $green, $blue"
+
+        // Puedes agregar una lógica para mostrar el nombre del color si es necesario
+        val colorName = getColorName(red, green, blue)
+        findViewById<TextView>(R.id.tvColorName).text = "Color: $colorName"
+    }
+
+    // Función para obtener el nombre del color (opcional)
+    private fun getColorName(red: Int, green: Int, blue: Int): String {
+        // Aquí puedes agregar una lógica para mapear el color a un nombre específico.
+        // Este es solo un ejemplo básico.
+        return when {
+            red > green && red > blue -> "Rojo"
+            green > red && green > blue -> "Verde"
+            blue > red && blue > green -> "Azul"
+            else -> "Desconocido"
+        }
+    }
+
 
     override fun onBackPressed() {
         // Verificar si la imagen congelada está visible
